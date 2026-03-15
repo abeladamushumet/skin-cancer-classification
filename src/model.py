@@ -1,38 +1,54 @@
-
 import tensorflow as tf
-from tensorflow.keras import layers, models
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Dense, Flatten, Dropout, GlobalAveragePooling2D
+from tensorflow.keras.applications import EfficientNetB0
+from tensorflow.keras.optimizers import Adam
 
-def build_model(input_shape=(128, 128, 3), num_classes=2):
+# Image size (must match data.py)
+IMG_HEIGHT = 224
+IMG_WIDTH = 224
+
+def build_model(num_classes, base_trainable=False, learning_rate=1e-4):
     """
-    Builds a simple Convolutional Neural Network (CNN) model for image classification.
+    Build a CNN model for skin lesion classification using Transfer Learning.
 
     Args:
-        input_shape (tuple): The shape of the input images (height, width, channels).
-        num_classes (int): The number of output classes for classification.
+        num_classes (int): Number of classes (7 for HAM10000)
+        base_trainable (bool): Whether to train the base model
+        learning_rate (float): Learning rate for optimizer
 
     Returns:
-        tf.keras.Model: The compiled Keras model.
+        model: compiled Keras model
     """
-    model = models.Sequential([
-        layers.Conv2D(32, (3, 3), activation='relu', input_shape=input_shape),
-        layers.MaxPooling2D((2, 2)),
-        layers.Conv2D(64, (3, 3), activation='relu'),
-        layers.MaxPooling2D((2, 2)),
-        layers.Conv2D(128, (3, 3), activation='relu'),
-        layers.MaxPooling2D((2, 2)),
-        layers.Flatten(),
-        layers.Dense(128, activation='relu'),
-        layers.Dense(num_classes, activation='softmax' if num_classes > 1 else 'sigmoid')
-    ])
 
-    # Compile the model
-    model.compile(optimizer='adam',
-                  loss='categorical_crossentropy' if num_classes > 1 else 'binary_crossentropy',
-                  metrics=['accuracy'])
+    # Load pre-trained EfficientNetB0 without top layers
+    base_model = EfficientNetB0(
+        weights='imagenet',
+        include_top=False,
+        input_shape=(IMG_HEIGHT, IMG_WIDTH, 3)
+    )
+    base_model.trainable = base_trainable  # freeze base by default
+
+    # Add custom classification head
+    x = base_model.output
+    x = GlobalAveragePooling2D()(x)
+    x = Dropout(0.3)(x)
+    x = Dense(128, activation='relu')(x)
+    x = Dropout(0.3)(x)
+    outputs = Dense(num_classes, activation='softmax')(x)
+
+    model = Model(inputs=base_model.input, outputs=outputs)
+
+    # Compile model
+    model.compile(
+        optimizer=Adam(learning_rate=learning_rate),
+        loss='categorical_crossentropy',
+        metrics=['accuracy']
+    )
+
     return model
 
-if __name__ == '__main__':
-    # Example usage:
-    print("Building a sample model for 2 classes with input shape (128, 128, 3)...")
-    sample_model = build_model()
-    sample_model.summary()
+# Test run
+if __name__ == "__main__":
+    model = build_model(num_classes=7)
+    model.summary()
