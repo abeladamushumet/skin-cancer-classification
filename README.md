@@ -187,7 +187,7 @@ skin-cancer-classification/
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/yourusername/skin-cancer-classification.git
+git clone https://github.com/abeladamushumet/skin-cancer-classification.git
 cd skin-cancer-classification
 ```
 
